@@ -9,8 +9,6 @@ built using Ebitengine
 to run 
 
 ```bash
-go build; ./main
+$ go mod tidy; go build; ./main
 ```
-
-
 
