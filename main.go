@@ -38,7 +38,6 @@ type Firefly struct {
 	speed float64
 	angle float64
 	alpha float64
-	flash bool
 	clock float64
 }
 
