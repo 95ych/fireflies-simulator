@@ -13,7 +13,7 @@ import (
 	"github.com/ebitenui/ebitenui/widget"
 	"github.com/golang/freetype/truetype"
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
+	"github.com/hajimehoshi/ebiten/v2/vector"
 	"golang.org/x/image/font/gofont/goregular"
 )
 
@@ -104,7 +104,8 @@ func (fly *Firefly) Draw(screen *ebiten.Image) {
 		A: uint8(255*a + (1-a)*30),
 	}
 
-	ebitenutil.DrawCircle(screen, fly.pos.x, fly.pos.y, radius, col)
+	vector.DrawFilledCircle(screen, float32(fly.pos.x), float32(fly.pos.y), radius, col, false)
+
 }
 
 type Game struct {
@@ -125,69 +126,108 @@ func NewGame() *Game {
 	fontFace := truetype.NewFace(ttfFont, &truetype.Options{
 		Size: 32,
 	})
+	sliderVal := 5
 
 	// This creates a text widget that says "Hello World!"
-	helloWorldLabel := widget.NewText(
-		widget.TextOpts.Text("Slider", fontFace, color.White),
-	)
 
 	// construct a new container that serves as the root of the UI hierarchy
 	rootContainer := widget.NewContainer(
-		// the container will use a plain color as its background
-		// widget.ContainerOpts.BackgroundImage(image.NewNineSliceColor(color.NRGBA{0x13, 0x1a, 0x22, 0xff})),
-
-		// the container will use an anchor layout to layout its single child widget
-		widget.ContainerOpts.Layout(widget.NewAnchorLayout()),
-	)
+		widget.ContainerOpts.WidgetOpts(widget.WidgetOpts.LayoutData(widget.AnchorLayoutData{
+			StretchHorizontal: true,
+		})),
+		widget.ContainerOpts.Layout(widget.NewRowLayout(
+			widget.RowLayoutOpts.Direction(widget.DirectionVertical),
+			widget.RowLayoutOpts.Spacing(20),
+		)))
 
 	// construct a slider
-	slider := widget.NewSlider(
-		// Set the slider orientation - n/s vs e/w
-		widget.SliderOpts.Direction(widget.DirectionHorizontal),
-		// Set the minimum and maximum value for the slider
-		widget.SliderOpts.MinMax(0, 10),
-
-		widget.SliderOpts.WidgetOpts(
-			// Set the Widget to layout in the center on the screen
-			widget.WidgetOpts.LayoutData(widget.AnchorLayoutData{
-				StretchHorizontal: false,
-				StretchVertical:   false,
-			}),
-			// Set the widget's dimensions
-			widget.WidgetOpts.MinSize(200, 6),
-		),
-		widget.SliderOpts.Images(
-			// Set the track images
-			&widget.SliderTrackImage{
-				Idle:  image.NewNineSliceColor(color.NRGBA{100, 100, 100, 255}),
-				Hover: image.NewNineSliceColor(color.NRGBA{100, 100, 100, 255}),
-			},
-			// Set the handle images
-			&widget.ButtonImage{
-				Idle:    image.NewNineSliceColor(color.NRGBA{255, 100, 100, 255}),
-				Hover:   image.NewNineSliceColor(color.NRGBA{255, 100, 100, 255}),
-				Pressed: image.NewNineSliceColor(color.NRGBA{255, 100, 100, 255}),
-			},
-		),
-		// Set the size of the handle
-		widget.SliderOpts.FixedHandleSize(6),
-		// Set the offset to display the track
-		widget.SliderOpts.TrackOffset(0),
-		// Set the size to move the handle
-		widget.SliderOpts.PageSizeFunc(func() int {
-			return 1
-		}),
-		// Set the callback to call when the slider value is changed
-		widget.SliderOpts.ChangedHandler(func(args *widget.SliderChangedEventArgs) {
-			fmt.Println(args.Current)
-		}),
-	)
-	// Set the current value of the slider
-	slider.Current = 5
 	// add the slider as a child of the container
-	rootContainer.AddChild(slider)
 	// To display the text widget, we have to add it to the root container.
-	rootContainer.AddChild(helloWorldLabel)
+	pageSizes := []string{"No. of fireflies", "Time nudge:"}
+	sliders := []*widget.Slider{}
+
+	for _, ps := range pageSizes {
+		_ = ps
+
+		sc := widget.NewContainer(
+			widget.ContainerOpts.Layout(widget.NewRowLayout(
+				widget.RowLayoutOpts.Spacing(40))),
+			widget.ContainerOpts.AutoDisableChildren(),
+		)
+		rootContainer.AddChild(sc)
+
+		var text *widget.Label
+
+		// s := widget.NewSlider(
+		// 	widget.SliderOpts.WidgetOpts(widget.WidgetOpts.LayoutData(widget.RowLayoutData{
+		// 		Position: widget.RowLayoutPositionCenter,
+		// 	}), widget.WidgetOpts.MinSize(20, 6)),
+		// 	widget.SliderOpts.MinMax(1, 10),
+		// 	// widget.SliderOpts.Images(res.slider.trackImage, res.slider.handle),
+		// 	widget.SliderOpts.FixedHandleSize(6),
+		// 	widget.SliderOpts.TrackOffset(5),
+		// 	widget.SliderOpts.PageSizeFunc(func() int {
+		// 		return ps
+		// 	}),
+		// 	widget.SliderOpts.ChangedHandler(func(args *widget.SliderChangedEventArgs) {
+		// 		text.Label = fmt.Sprintf("%d", args.Current)
+		// 	}),
+		// )
+		slider := widget.NewSlider(
+			// Set the slider orientation - n/s vs e/w
+			widget.SliderOpts.Direction(widget.DirectionHorizontal),
+			// Set the minimum and maximum value for the slider
+			widget.SliderOpts.MinMax(0, 10),
+
+			widget.SliderOpts.WidgetOpts(
+				// Set the Widget to layout in the center on the screen
+				widget.WidgetOpts.LayoutData(widget.AnchorLayoutData{
+					HorizontalPosition: widget.AnchorLayoutPositionCenter,
+					VerticalPosition:   widget.AnchorLayoutPositionCenter,
+				}),
+				// Set the widget's dimensions
+				widget.WidgetOpts.MinSize(200, 6),
+			),
+			widget.SliderOpts.Images(
+				// Set the track images
+				&widget.SliderTrackImage{
+					Idle:  image.NewNineSliceColor(color.NRGBA{100, 100, 100, 255}),
+					Hover: image.NewNineSliceColor(color.NRGBA{100, 100, 100, 255}),
+				},
+				// Set the handle images
+				&widget.ButtonImage{
+					Idle:    image.NewNineSliceColor(color.NRGBA{255, 100, 100, 255}),
+					Hover:   image.NewNineSliceColor(color.NRGBA{255, 100, 100, 255}),
+					Pressed: image.NewNineSliceColor(color.NRGBA{255, 100, 100, 255}),
+				},
+			),
+			// Set the size of the handle
+			widget.SliderOpts.FixedHandleSize(6),
+			// Set the offset to display the track
+			widget.SliderOpts.TrackOffset(0),
+			// Set the size to move the handle
+			widget.SliderOpts.PageSizeFunc(func() int {
+				return 1
+			}),
+			// Set the callback to call when the slider value is changed
+			widget.SliderOpts.ChangedHandler(func(args *widget.SliderChangedEventArgs) {
+				text.Label = ps + ": " + fmt.Sprintf("%d", args.Current)
+			}),
+		)
+		sliders = append(sliders, slider)
+		text = widget.NewLabel(
+			widget.LabelOpts.TextOpts(widget.TextOpts.WidgetOpts(widget.WidgetOpts.LayoutData(widget.RowLayoutData{
+				Position: widget.RowLayoutPositionCenter,
+			}))),
+			widget.LabelOpts.Text("Slider"+fmt.Sprint(sliderVal), fontFace, &widget.LabelColor{
+				Idle:     color.White,
+				Disabled: color.Black,
+			}),
+		)
+		sc.AddChild(text)
+		sc.AddChild(slider)
+	}
+
 	g.ui = &ebitenui.UI{
 		Container: rootContainer,
 	}
@@ -197,11 +237,11 @@ func NewGame() *Game {
 func (g *Game) Update() error {
 
 	for i := 0; i < flyCount; i++ {
-		g.flies[i].Update()
+		go g.flies[i].Update()
 		if g.flies[i].alpha == 1 {
 			for j := 0; j < flyCount; j++ {
 				if i != j {
-					g.flies[i].syncUp(&g.flies[j])
+					go g.flies[i].syncUp(&g.flies[j])
 				}
 			}
 		}
@@ -232,6 +272,7 @@ func init() {
 
 func main() {
 	ebiten.SetWindowSize(WIN_WIDTH, WIN_HEIGHT)
+	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
 	ebiten.SetWindowTitle("Fireflies Synchronization")
 
 	if err := ebiten.RunGame(NewGame()); err != nil {
