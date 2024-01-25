@@ -18,22 +18,27 @@ import (
 )
 
 const (
-	WIN_HEIGHT    = 1080
-	WIN_WIDTH     = 1920
-	SCALE         = 1
-	MAX_FIREFLIES = 1000
-	MAX_SPEED     = 8
-	MIN_SPEED     = 3
-	TIMER         = 36000
-	TICK_RATE     = 100
-	SYNC_UP       = 1000
-	FADE_RATE     = 0.008
-	flyCount      = 900
-	radius        = 4
-	proximity     = 200
+	WIN_HEIGHT = 1080
+	WIN_WIDTH  = 1920
+	SCALE      = 1
+	TIMER      = 36000
+	TICK_RATE  = 100
+	SYNC_UP    = 1000
+	FADE_RATE  = 0.008
+	radius     = 4
 )
 
 var dt = 0.15
+var flyCount = 900
+var proximity float64 = 200
+var sync_up_factor float64 = 1
+var main_game *Game
+var fly_max_speed float64 = 8
+var fly_min_speed float64 = 3
+var labels = []string{"No. of fireflies", "Time nudge", "Proximity", "Fly Max Speed", "Fly Min Speed"}
+var slider_min = []int{100, 1, 50, 1, 1}
+var slider_max = []int{1000, 20, 400, 100, 100}
+var texts = []*widget.Label{}
 
 type position struct {
 	x, y float64
@@ -54,7 +59,7 @@ func manhattanDist(f1 Firefly, f2 Firefly) float64 {
 func (fly *Firefly) syncUp(neighborFly *Firefly) {
 	if manhattanDist(*fly, *neighborFly) < proximity {
 		nudgeFactor := neighborFly.clock / TIMER
-		neighborFly.clock = math.Min(neighborFly.clock+nudgeFactor*SYNC_UP, TIMER)
+		neighborFly.clock = math.Min(neighborFly.clock+nudgeFactor*SYNC_UP*sync_up_factor, TIMER)
 	}
 }
 
@@ -62,7 +67,7 @@ func (fly *Firefly) Init() {
 	fly.pos.x = rand.Float64() * WIN_WIDTH * SCALE
 	fly.pos.y = rand.Float64() * WIN_HEIGHT * SCALE
 	fly.angle = rand.Float64()*2*math.Pi - math.Pi
-	fly.speed = MIN_SPEED + rand.Float64()*(MAX_SPEED-MIN_SPEED)
+	fly.speed = fly_min_speed + rand.Float64()*(fly_max_speed-fly_min_speed)
 	fly.clock = rand.Float64() * TIMER
 }
 
@@ -109,12 +114,46 @@ func (fly *Firefly) Draw(screen *ebiten.Image) {
 }
 
 type Game struct {
-	flies [flyCount]Firefly
+	flies []Firefly
 	ui    *ebitenui.UI
+	state int
 }
 
+func updateFireflies(args *widget.SliderChangedEventArgs) {
+	texts[0].Label = labels[0] + ": " + fmt.Sprintf("%d", args.Current)
+	main_game.state = 1
+	flyCount = int(args.Current)
+}
+
+func updateTimeNudge(args *widget.SliderChangedEventArgs) {
+	texts[1].Label = labels[1] + ": " + fmt.Sprintf("%d", args.Current)
+	main_game.state = 1
+	sync_up_factor = float64(args.Current)
+}
+
+func updateProximity(args *widget.SliderChangedEventArgs) {
+	texts[2].Label = labels[2] + ": " + fmt.Sprintf("%d", args.Current)
+	main_game.state = 1
+	proximity = float64(args.Current)
+}
+
+func updateMaxSpeed(args *widget.SliderChangedEventArgs) {
+	texts[3].Label = labels[3] + ": " + fmt.Sprintf("%d", args.Current)
+	main_game.state = 1
+	fly_max_speed = float64(args.Current)
+
+}
+func updateMinSpeed(args *widget.SliderChangedEventArgs) {
+	texts[4].Label = labels[4] + ": " + fmt.Sprintf("%d", args.Current)
+	main_game.state = 1
+	fly_min_speed = float64(args.Current)
+}
+
+// var labels = []string{"No. of fireflies", "Time nudge", "Proximity", "Fly Max Speed", "Fly Min Speed"}
 func NewGame() *Game {
-	g := &Game{}
+	g := &Game{
+		flies: make([]Firefly, flyCount),
+	}
 	for i := 0; i < flyCount; i++ {
 		go g.flies[i].Init()
 	}
@@ -124,9 +163,9 @@ func NewGame() *Game {
 		log.Fatal("Error Parsing Font", err)
 	}
 	fontFace := truetype.NewFace(ttfFont, &truetype.Options{
-		Size: 32,
+		Size: 22,
 	})
-	sliderVal := 5
+	sliderVal := 500
 
 	// This creates a text widget that says "Hello World!"
 
@@ -143,12 +182,9 @@ func NewGame() *Game {
 	// construct a slider
 	// add the slider as a child of the container
 	// To display the text widget, we have to add it to the root container.
-	pageSizes := []string{"No. of fireflies", "Time nudge:"}
 	sliders := []*widget.Slider{}
 
-	for _, ps := range pageSizes {
-		_ = ps
-
+	for i, parameter := range labels {
 		sc := widget.NewContainer(
 			widget.ContainerOpts.Layout(widget.NewRowLayout(
 				widget.RowLayoutOpts.Spacing(40))),
@@ -158,26 +194,11 @@ func NewGame() *Game {
 
 		var text *widget.Label
 
-		// s := widget.NewSlider(
-		// 	widget.SliderOpts.WidgetOpts(widget.WidgetOpts.LayoutData(widget.RowLayoutData{
-		// 		Position: widget.RowLayoutPositionCenter,
-		// 	}), widget.WidgetOpts.MinSize(20, 6)),
-		// 	widget.SliderOpts.MinMax(1, 10),
-		// 	// widget.SliderOpts.Images(res.slider.trackImage, res.slider.handle),
-		// 	widget.SliderOpts.FixedHandleSize(6),
-		// 	widget.SliderOpts.TrackOffset(5),
-		// 	widget.SliderOpts.PageSizeFunc(func() int {
-		// 		return ps
-		// 	}),
-		// 	widget.SliderOpts.ChangedHandler(func(args *widget.SliderChangedEventArgs) {
-		// 		text.Label = fmt.Sprintf("%d", args.Current)
-		// 	}),
-		// )
 		slider := widget.NewSlider(
 			// Set the slider orientation - n/s vs e/w
 			widget.SliderOpts.Direction(widget.DirectionHorizontal),
 			// Set the minimum and maximum value for the slider
-			widget.SliderOpts.MinMax(0, 10),
+			widget.SliderOpts.MinMax(slider_min[i], slider_max[i]),
 
 			widget.SliderOpts.WidgetOpts(
 				// Set the Widget to layout in the center on the screen
@@ -196,22 +217,32 @@ func NewGame() *Game {
 				},
 				// Set the handle images
 				&widget.ButtonImage{
-					Idle:    image.NewNineSliceColor(color.NRGBA{255, 100, 100, 255}),
-					Hover:   image.NewNineSliceColor(color.NRGBA{255, 100, 100, 255}),
-					Pressed: image.NewNineSliceColor(color.NRGBA{255, 100, 100, 255}),
+					Idle:    image.NewNineSliceColor(color.NRGBA{255, 255, 0, 190}),
+					Hover:   image.NewNineSliceColor(color.NRGBA{255, 255, 00, 255}),
+					Pressed: image.NewNineSliceColor(color.NRGBA{255, 255, 100, 255}),
 				},
 			),
-			// Set the size of the handle
 			widget.SliderOpts.FixedHandleSize(6),
-			// Set the offset to display the track
 			widget.SliderOpts.TrackOffset(0),
-			// Set the size to move the handle
 			widget.SliderOpts.PageSizeFunc(func() int {
 				return 1
 			}),
-			// Set the callback to call when the slider value is changed
 			widget.SliderOpts.ChangedHandler(func(args *widget.SliderChangedEventArgs) {
-				text.Label = ps + ": " + fmt.Sprintf("%d", args.Current)
+				switch args.Slider {
+				case sliders[0]:
+					updateFireflies(args)
+				case sliders[1]:
+					updateTimeNudge(args)
+				case sliders[2]:
+					updateProximity(args)
+				case sliders[3]:
+					updateMaxSpeed(args)
+				case sliders[4]:
+					updateMinSpeed(args)
+				default:
+					updateFireflies(args)
+					println(i)
+				}
 			}),
 		)
 		sliders = append(sliders, slider)
@@ -219,11 +250,12 @@ func NewGame() *Game {
 			widget.LabelOpts.TextOpts(widget.TextOpts.WidgetOpts(widget.WidgetOpts.LayoutData(widget.RowLayoutData{
 				Position: widget.RowLayoutPositionCenter,
 			}))),
-			widget.LabelOpts.Text("Slider"+fmt.Sprint(sliderVal), fontFace, &widget.LabelColor{
+			widget.LabelOpts.Text(parameter+": "+fmt.Sprint(sliderVal), fontFace, &widget.LabelColor{
 				Idle:     color.White,
 				Disabled: color.Black,
 			}),
 		)
+		texts = append(texts, text)
 		sc.AddChild(text)
 		sc.AddChild(slider)
 	}
@@ -235,6 +267,14 @@ func NewGame() *Game {
 }
 
 func (g *Game) Update() error {
+	if g.state == 1 {
+		g.flies = make([]Firefly, flyCount)
+		g.state = 0
+		for i := 0; i < flyCount; i++ {
+			go g.flies[i].Init()
+		}
+		return nil
+	}
 
 	for i := 0; i < flyCount; i++ {
 		go g.flies[i].Update()
@@ -251,6 +291,11 @@ func (g *Game) Update() error {
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
+	if g.state == 1 {
+		g.flies = make([]Firefly, flyCount)
+		g.state = 0
+		return
+	}
 	for i := 0; i < flyCount; i++ {
 		g.flies[i].Draw(screen)
 	}
@@ -262,10 +307,6 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
 	return WIN_WIDTH, WIN_HEIGHT
 }
 
-type game struct {
-	ui *ebitenui.UI
-}
-
 func init() {
 	rand.NewSource(time.Now().UnixNano())
 }
@@ -274,8 +315,9 @@ func main() {
 	ebiten.SetWindowSize(WIN_WIDTH, WIN_HEIGHT)
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
 	ebiten.SetWindowTitle("Fireflies Synchronization")
+	main_game = NewGame()
 
-	if err := ebiten.RunGame(NewGame()); err != nil {
+	if err := ebiten.RunGame(main_game); err != nil {
 		log.Fatal(err)
 	}
 }
