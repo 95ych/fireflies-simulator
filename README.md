@@ -12,3 +12,5 @@ to run
 $ go mod tidy; go build; ./main
 ```
 
+Demo:
+![](./assets/fireflies-sync.gif)
